@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Shield, ArrowRight } from 'lucide-react';
+import { Shield, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -115,14 +116,24 @@ export default function Register() {
               <label class="block text-xs font-mono text-vault-primary tracking-wider uppercase mb-2">
                 VAULT PASSWORD
               </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="MINIMUM 6 CHARACTERS"
-                class="w-full bg-[#0E0E0E] hairline-border focus:border-vault-lime px-4 py-3 text-vault-primary font-mono text-sm tracking-wide focus:outline-none focus:ring-1 focus:ring-vault-lime placeholder-neutral-800 transition-colors"
-              />
+              <div class="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="MINIMUM 6 CHARACTERS"
+                  class="w-full bg-[#0E0E0E] hairline-border focus:border-vault-lime px-4 py-3 pr-12 text-vault-primary font-mono text-sm tracking-wide focus:outline-none focus:ring-1 focus:ring-vault-lime placeholder-neutral-800 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  class="absolute right-4 top-1/2 -translate-y-1/2 text-vault-muted hover:text-vault-lime transition-colors"
+                  title={showPassword ? "Hide Password" : "Show Password"}
+                >
+                  {showPassword ? <EyeOff class="w-4 h-4" /> : <Eye class="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
