@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, ArrowRight, Eye, EyeOff } from 'lucide-react';
@@ -13,6 +13,47 @@ export default function Register() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Initialize Google Sign-In
+  useEffect(() => {
+    // If standard Google GIS library is not loaded yet, skip
+    if (!window.google) return;
+
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '855486851670-jk8h5rccmvei18f1pve6r4mglod8ebic.apps.googleusercontent.com'; // Fallback demo ID
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: async (response) => {
+        setError('');
+        setSubmitting(true);
+        try {
+          const res = await fetch(`${API_URL}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.message || 'Google Authentication failed.');
+          }
+
+          login(data);
+          navigate('/');
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setSubmitting(false);
+        }
+      }
+    });
+
+    window.google.accounts.id.renderButton(
+      document.getElementById('google-signup-btn'),
+      { theme: 'dark', size: 'large', width: '100%' }
+    );
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -122,7 +163,7 @@ export default function Register() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="MINIMUM 6 CHARACTERS"
+                  placeholder="ALPHANUMERIC + SPECIAL (MIN 8)"
                   class="w-full bg-[#0E0E0E] hairline-border focus:border-vault-lime px-4 py-3 pr-12 text-vault-primary font-mono text-sm tracking-wide focus:outline-none focus:ring-1 focus:ring-vault-lime placeholder-neutral-800 transition-colors"
                 />
                 <button
@@ -145,6 +186,16 @@ export default function Register() {
               <ArrowRight class="w-4 h-4" />
             </button>
           </form>
+
+          {/* Divider */}
+          <div class="my-6 flex items-center justify-between">
+            <span class="w-[42%] h-[1px] bg-neutral-900"></span>
+            <span class="font-mono text-[9px] text-vault-muted uppercase">OR</span>
+            <span class="w-[42%] h-[1px] bg-neutral-900"></span>
+          </div>
+
+          {/* Google Sign-in Button Container */}
+          <div id="google-signup-btn" class="w-full flex justify-center"></div>
         </div>
 
         <div class="mt-6 text-center">

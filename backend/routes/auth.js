@@ -2,8 +2,12 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const { RegisterSchema, LoginSchema } = require('../validators/schemas');
+
+// Initialize Google OAuth2 client
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Generate JWT token helper
 const generateToken = (id, email, displayName) => {
@@ -102,6 +106,60 @@ router.post('/login', async (req, res) => {
 
     console.error('Login Error:', error);
     return res.status(500).json({ message: 'Server error during authentication' });
+  }
+});
+
+// @route   POST /api/auth/google
+// @desc    Verify Google ID Token and register or login user
+// @access  Public
+router.post('/google', async (req, res) => {
+  const { credential } = req.body;
+
+  if (!credential) {
+    return res.status(400).json({ message: 'Google credential token is missing.' });
+  }
+
+  try {
+    // 1. Verify Google Token ID (credential)
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, sub } = payload;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Google account is missing a verified email address.' });
+    }
+
+    // 2. Locate or create User profile
+    let user = await User.findOne({ email });
+    if (!user) {
+      // Create user with a strong random password hash since login is managed by Google
+      const randomPassword = Math.random().toString(36).substring(2, 15) + '!@#123abc';
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(randomPassword, salt);
+
+      user = await User.create({
+        email,
+        passwordHash,
+        displayName: name || `Creator_${sub.substring(0, 6)}`
+      });
+    }
+
+    // 3. Issue standard ClosetOS JWT
+    const token = generateToken(user._id, user.email, user.displayName);
+
+    return res.status(200).json({
+      _id: user._id,
+      displayName: user.displayName,
+      email: user.email,
+      token
+    });
+  } catch (error) {
+    console.error('Google Sign-In Error:', error);
+    return res.status(401).json({ message: 'Google token authentication failed.' });
   }
 });
 

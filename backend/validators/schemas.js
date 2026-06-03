@@ -2,7 +2,14 @@ const { z } = require('zod');
 
 const RegisterSchema = z.object({
   email: z.string().email('Invalid email address format'),
-  password: z.string().min(6, 'Password must be at least 6 characters long'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters long')
+    .regex(/^[^\s]+$/, 'Password must not contain spaces')
+    .regex(
+      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/,
+      'Password must contain at least one letter, one number, and one special character'
+    ),
   displayName: z.string().min(2, 'Display name must be at least 2 characters long').max(50)
 });
 
