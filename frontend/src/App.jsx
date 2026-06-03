@@ -44,6 +44,8 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+import { ToastProvider } from './components/Toast';
+
 function AppRoutes() {
   return (
     <Routes>
@@ -92,9 +94,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <ToastProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   );
 }

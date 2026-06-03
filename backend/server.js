@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const itemRoutes = require('./routes/items');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(morgan('dev'));
 // Mount API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Base Route
 app.get('/', (req, res) => {

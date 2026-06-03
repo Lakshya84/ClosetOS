@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import TransferModal from '../components/TransferModal';
+import { useToast } from '../components/Toast';
 import { ArrowLeft, Edit2, Trash2, Calendar, DollarSign, Tag, RefreshCw, Check, Clock, X, ShieldAlert } from 'lucide-react';
 
 const PLACEHOLDER_IMG = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80";
@@ -10,6 +11,7 @@ export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { authFetch } = useAuth();
+  const { showToast } = useToast();
 
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,9 +73,10 @@ export default function ItemDetail() {
       if (!res.ok) {
         throw new Error('Failed to delete accessory.');
       }
+      showToast('Accessory permanently removed from archive', 'success');
       navigate('/');
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -103,8 +106,10 @@ export default function ItemDetail() {
 
       setItem(data);
       setIsEditing(false);
+      showToast('Accessory details saved successfully', 'success');
     } catch (err) {
       setError(err.message);
+      showToast(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -112,6 +117,7 @@ export default function ItemDetail() {
 
   const handleTransferSuccess = (updatedItem) => {
     setItem(updatedItem);
+    showToast(`Custody status updated to ${updatedItem.status}`, 'success');
   };
 
   if (loading) {

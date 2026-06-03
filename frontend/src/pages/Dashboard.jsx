@@ -4,7 +4,8 @@ import SummaryStrip from '../components/SummaryStrip';
 import ItemCard from '../components/ItemCard';
 import EmptyState from '../components/EmptyState';
 import AddItemDrawer from '../components/AddItemDrawer';
-import { LogOut, Plus, Filter, RefreshCw, AlertCircle } from 'lucide-react';
+import NotificationDrawer from '../components/NotificationDrawer';
+import { LogOut, Plus, Filter, RefreshCw, AlertCircle, Bell } from 'lucide-react';
 
 export default function Dashboard() {
   const { user, logout, authFetch } = useAuth();
@@ -18,6 +19,21 @@ export default function Dashboard() {
   
   // Drawer states
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await authFetch('/api/notifications');
+      if (res.ok) {
+        const notifs = await res.json();
+        const unread = notifs.filter(n => !n.read).length;
+        setUnreadCount(unread);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchItems = async () => {
     try {
@@ -28,6 +44,8 @@ export default function Dashboard() {
         throw new Error(data.message || 'Failed to retrieve archive items.');
       }
       setItems(data);
+      // Fetch unread count after fetching items to pick up any new overdue alerts
+      await fetchUnreadCount();
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -85,6 +103,20 @@ export default function Dashboard() {
           </div>
 
           <div class="flex items-center gap-6">
+            {/* Notification Bell Icon */}
+            <button
+              onClick={() => setNotifOpen(true)}
+              class="relative hairline-border hover:border-vault-lime text-vault-muted hover:text-vault-lime p-2.5 transition-all flex items-center justify-center"
+              title="SYSTEM LOGS"
+            >
+              <Bell class="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span class="absolute -top-1 -right-1 bg-vault-red text-white font-mono text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-vault-bg animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
             <div class="text-right hidden sm:block">
               <span class="block text-xs font-mono text-vault-muted uppercase">CREATOR IN SESSION:</span>
               <span class="block text-xs font-bold text-vault-primary uppercase font-mono">{user?.displayName}</span>
@@ -261,6 +293,15 @@ export default function Dashboard() {
         isOpen={drawerOpen} 
         onClose={() => setDrawerOpen(false)} 
         onRefresh={fetchItems} 
+      />
+
+      {/* Slide out Notification Drawer */}
+      <NotificationDrawer
+        isOpen={notifOpen}
+        onClose={() => {
+          setNotifOpen(false);
+          fetchUnreadCount(); // Refresh count on close
+        }}
       />
     </div>
   );

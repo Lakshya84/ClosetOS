@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const Item = require('../models/Item');
+const Notification = require('../models/Notification');
 const { protect } = require('../middleware/auth');
 const { CreateItemSchema, UpdateItemSchema, TransferItemSchema } = require('../validators/schemas');
 const { cloudinary, isCloudinaryConfigured } = require('../config/cloudinary');
@@ -37,7 +38,7 @@ const uploadToCloudinary = (fileBuffer) => {
 };
 
 // @route   GET /api/items
-// @desc    Get all accessories for logged-in creator (supports filters)
+// @desc    Get all accessories for logged-in creator (supports filters) and run dynamic overdue calculations
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
@@ -53,12 +54,44 @@ router.get('/', protect, async (req, res) => {
     // Fetch items (leveraging the { status, category } compound index if filtered)
     const items = await Item.find(query).sort({ createdAt: -1 });
 
-    // Transform items to include computed isOverdue field
-    const itemsWithOverdue = items.map(item => {
+    // Transform items to include computed isOverdue field & check for new overdue items to trigger notifications
+    const itemsWithOverdue = [];
+    const overdueChecks = [];
+
+    for (const item of items) {
       const itemObj = item.toObject();
-      itemObj.isOverdue = getIsOverdue(item.status, item.returnDate);
-      return itemObj;
-    });
+      const isOverdueNow = getIsOverdue(item.status, item.returnDate);
+      itemObj.isOverdue = isOverdueNow;
+      itemsWithOverdue.push(itemObj);
+
+      // If item is newly overdue, queue a check to create an overdue notification
+      if (isOverdueNow) {
+        overdueChecks.push(item);
+      }
+    }
+
+    // Process overdue alerts asynchronously (avoids blocking main response)
+    if (overdueChecks.length > 0) {
+      Promise.all(overdueChecks.map(async (overdueItem) => {
+        // Prevent duplicate unread notifications for the same overdue event
+        const exists = await Notification.findOne({
+          owner: req.user.id,
+          type: 'OVERDUE',
+          message: { $regex: overdueItem.name, $options: 'i' },
+          read: false
+        });
+
+        if (!exists) {
+          const readableDate = new Date(overdueItem.returnDate).toLocaleDateString();
+          await Notification.create({
+            owner: req.user.id,
+            type: 'OVERDUE',
+            title: 'Accessory Overdue Alert',
+            message: `"${overdueItem.name}" lent to ${overdueItem.custodianName || 'stylist'} was expected back on ${readableDate}.`
+          });
+        }
+      })).catch(err => console.error('Background Overdue Notification processing failed:', err));
+    }
 
     return res.status(200).json(itemsWithOverdue);
   } catch (error) {
@@ -78,6 +111,14 @@ router.post('/', protect, async (req, res) => {
       ...validatedData,
       owner: req.user.id,
       status: 'IN_CLOSET' // Strict start state
+    });
+
+    // Create system notification log
+    await Notification.create({
+      owner: req.user.id,
+      type: 'UPDATE',
+      title: 'New Accessory Logged',
+      message: `"${newItem.name}" was successfully added to your storage vault.`
     });
 
     const responseItem = newItem.toObject();
@@ -136,6 +177,14 @@ router.patch('/:id', protect, async (req, res) => {
     if (!item) {
       return res.status(404).json({ message: 'Accessory not found' });
     }
+
+    // Create system notification log
+    await Notification.create({
+      owner: req.user.id,
+      type: 'UPDATE',
+      title: 'Accessory Metadata Updated',
+      message: `Properties for "${item.name}" were successfully modified.`
+    });
 
     const itemObj = item.toObject();
     itemObj.isOverdue = getIsOverdue(item.status, item.returnDate);
@@ -222,6 +271,23 @@ router.patch('/:id/transfer', protect, async (req, res) => {
 
     await item.save();
 
+    // Create system transition notification log
+    let statusMsg = `"${item.name}" status was transitioned to ${toStatus}.`;
+    if (isOutStatus) {
+      statusMsg = `"${item.name}" was transferred out to ${recipientName}.`;
+    } else if (isReturning) {
+      statusMsg = `"${item.name}" was returned back to vault storage storage.`;
+    } else if (isMissing) {
+      statusMsg = `ALERT: "${item.name}" has been recorded as MISSING.`;
+    }
+
+    await Notification.create({
+      owner: req.user.id,
+      type: 'TRANSFER',
+      title: 'Custody Shift Recorded',
+      message: statusMsg
+    });
+
     const itemObj = item.toObject();
     itemObj.isOverdue = getIsOverdue(item.status, item.returnDate);
 
@@ -248,6 +314,14 @@ router.delete('/:id', protect, async (req, res) => {
     if (!item) {
       return res.status(404).json({ message: 'Accessory not found' });
     }
+
+    // Create system notification log
+    await Notification.create({
+      owner: req.user.id,
+      type: 'DELETE',
+      title: 'Accessory Removed',
+      message: `"${item.name}" was permanently removed from ClosetOS archive records.`
+    });
 
     return res.status(200).json({ message: 'Accessory removed from archive', id: req.params.id });
   } catch (error) {
