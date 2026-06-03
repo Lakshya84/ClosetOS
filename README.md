@@ -79,22 +79,3 @@ npm run dev
 *Note: Vite config is pre-configured with a development proxy. All local frontend calls to `/api/...` automatically proxy to `http://localhost:5001` avoiding CORS issues.*
 
 ---
-
-## 💎 Resume & Interview Reference Guide
-*Tailored for Junior Web Developers or Analysts (1-2 years of experience) seeking to stand out in interviews by describing advanced full-stack capabilities.*
-
-Recruiters and senior engineers look for core competencies in **performance optimization** and **system reliability**. ClosetOS provides two excellent showcase examples to add to your resume and discuss in interviews:
-
-### 1. Compound Indexing
-- **Resume Point**: *"Implemented high-performance compound indexing `{ status: 1, category: 1 }` on MongoDB documents to support sub-millisecond filtering on multi-dimensional dashboard queries."*
-- **The Tech Details**: The ClosetOS dashboard heavily filters items by status (e.g. `IN_CLOSET`, `ON_LOAN`) and category (e.g. `Bag`, `Jewellery`). In a standard database, this triggers a slow **Collection Scan (COLLSCAN)**, examining every single record. By defining a compound index in Mongoose `ItemSchema.index({ status: 1, category: 1 })`, MongoDB performs a lightning-fast **Index Scan (IXSCAN)**, reducing query complexity from $O(N)$ to $O(\log N)$ and significantly cutting down server resource utilization under high concurrent loads.
-
-### 2. Locked Status State Machine
-- **Resume Point**: *"Architected a server-enforced, single-direction status state machine limiting transitions to strict lifecycles, securing custody tracking and preventing critical state exceptions."*
-- **The Tech Details**: Outgoing transitions must be verified. For instance, when a piece goes `MISSING`, it locks; a user cannot transition a missing item to `ON_LOAN` directly, preserving history audit trails. Transitions are validated server-side by comparing the current state to an `ALLOWED_TRANSITIONS` map. If a creator tries to hijack the API via Postman to transfer a missing item, the server halts the action immediately and returns a clean `400 Bad Request` with structured errors, protecting database integrity.
-
-### 📝 Example Resume Bullet Points (Copy & Paste ready):
-- *Designed and developed ClosetOS, a full-stack MERN accessory lifecycle tracking app utilizing Node.js, React 19, Zod schemas, and a secure JWT authorization hierarchy.*
-- *Optimized dashboard query latencies by implementing Mongoose compound indexes `{ status: 1, category: 1 }`, replacing Collection Scans with indexed key lookups.*
-- *Enforced state-machine integrity on the backend by building a locked status validator that prevents illegal item movements (e.g. from MISSING to active states) and returns structured Express bad-request codes.*
-- *Engineered a failsafe asynchronous image-upload handler that decouples primary database operations from secondary Cloudinary uploads, improving UX flow and incorporating automatic frontend retry mechanics on failure.*
